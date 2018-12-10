@@ -36,16 +36,16 @@ func (c *MFLRU) Put(key string, val []byte) {
 
 	curNode := c.cache[key]
 
-	var sizeDiff = c.kvsize(key, val)
+	var sizeDiff = c.estkvsize(key, val)
 	if curNode != nil {
-		sizeDiff -= c.kvsize(key, curNode.val)
+		sizeDiff -= c.estkvsize(key, curNode.val)
 	}
 
 	for c.memorySize+sizeDiff > c.memoryLimit && !c.evictList.isEmpty() {
 		enode := c.evictLeastRecent()
 		if enode == curNode {
 			curNode = nil
-			sizeDiff = c.kvsize(key, val)
+			sizeDiff = c.estkvsize(key, val)
 		}
 	}
 
@@ -57,7 +57,7 @@ func (c *MFLRU) Put(key string, val []byte) {
 		curNode = c.newNode(key, val)
 		c.insertToMostRecent(curNode)
 		c.cache[key] = curNode
-		c.memorySize += c.kvsize(key, val)
+		c.memorySize += c.estkvsize(key, val)
 	}
 
 	if debug {
@@ -81,8 +81,9 @@ func (c *MFLRU) MemorySize() int64 {
 	return c.memorySize
 }
 
-func (c *MFLRU) kvsize(key string, val []byte) int64 {
-	return int64(int(unsafe.Sizeof(slistnode{})) + len(key) + len(val))
+func (c *MFLRU) estkvsize(key string, val []byte) int64 {
+	// add 8 uintptr for the memory footprints of cache map, etc ...
+	return int64(int(unsafe.Sizeof(slistnode{})+8*unsafe.Sizeof(uintptr(0))) + len(key) + len(val))
 }
 
 func (c *MFLRU) evictOutdatedEntries() {
@@ -124,7 +125,7 @@ func (c *MFLRU) evictLeastRecent() *slistnode {
 	}
 
 	delete(c.cache, head.key)
-	c.memorySize -= c.kvsize(head.key, head.val)
+	c.memorySize -= c.estkvsize(head.key, head.val)
 
 	if debug {
 		if c.memorySize < 0 {
@@ -166,7 +167,7 @@ func (c *MFLRU) validateCorrectness() {
 	var sizeAccum int64
 	for node := c.evictList.head; node != nil; node = node.next {
 		travelNodeCnt += 1
-		sizeAccum += c.kvsize(node.key, node.val)
+		sizeAccum += c.estkvsize(node.key, node.val)
 		if c.cache[node.key] != node {
 			panic(fmt.Errorf("wrong MFLRU cache"))
 		}

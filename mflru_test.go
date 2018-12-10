@@ -1,10 +1,15 @@
 package mflru
 
 import (
+	"log"
 	"math/rand"
+	"net/http"
+	_ "net/http/pprof" //"time"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/xiaonanln/go-simplelogger"
 )
 
 func TestNewMFLRU(t *testing.T) {
@@ -123,4 +128,27 @@ func equalsBytes(b1, b2 []byte) bool {
 		}
 	}
 	return true
+}
+
+func TestMFLRU_MemorySize(t *testing.T) {
+	go func() {
+		pprofAddr := "localhost:9958"
+		log.Printf("starting pprof server on %s ...", pprofAddr)
+		if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+			simplelogger.Error(err)
+		}
+	}()
+
+	var mflru *MFLRU
+
+	mflru = NewMFLRU(100*1024*1024, 0, func(key string, val []byte) {
+		log.Printf("MFLRU cache is full: %d", mflru.MemorySize())
+		time.Sleep(time.Second * 60)
+	})
+
+	for {
+		b := make([]byte, 16)
+		rand.Read(b)
+		mflru.Put(string(b), b)
+	}
 }
