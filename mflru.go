@@ -51,7 +51,7 @@ func (c *MFLRU) Put(key string, val []byte) {
 
 	if curNode != nil {
 		curNode.val = val
-		curNode.updateTime = time.Now().UnixNano()
+		curNode.visitTime = time.Now().UnixNano()
 		c.moveToMostRecent(curNode)
 	} else {
 		curNode = c.newNode(key, val)
@@ -71,6 +71,7 @@ func (c *MFLRU) Get(key string) (val []byte, ok bool) {
 	node := c.cache[key]
 	if node != nil {
 		val, ok = node.val, true
+		node.visitTime = time.Now().UnixNano()
 		c.moveToMostRecent(node)
 	}
 	return
@@ -90,7 +91,7 @@ func (c *MFLRU) evictOutdatedEntries() {
 	}
 
 	deadline := time.Now().UnixNano() - c.evictTimeout
-	for !c.evictList.isEmpty() && c.evictList.head.updateTime <= deadline {
+	for !c.evictList.isEmpty() && c.evictList.head.visitTime <= deadline {
 		c.evictLeastRecent()
 	}
 

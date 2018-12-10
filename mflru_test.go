@@ -32,7 +32,7 @@ func TestMFLRUEvictTimeout(t *testing.T) {
 	if _, ok := mflru.Get("b"); !ok {
 		t.Fatalf("should not evict")
 	}
-	time.Sleep(time.Millisecond * 51)
+	time.Sleep(time.Millisecond * 101)
 	if _, ok := mflru.Get("a"); ok {
 		t.Fatalf("should evict")
 	}
