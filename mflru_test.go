@@ -86,13 +86,25 @@ func TestMFLRU_Fuzzy(t *testing.T) {
 		if !incahe(key) {
 			t.Fatalf("key not in keyset")
 		}
+		delete(keyset, key)
 	})
 
 	for i := 0; i < 100000; i++ {
 		k := strconv.Itoa(rand.Intn(100000))
+		v, ok := mflru.Get(k)
+		if !incahe(k) {
+			if ok {
+				t.Fatalf("should not Get ok")
+			}
+		} else {
+			if !ok || !equalsBytes(v, []byte(k)) {
+				t.Fatalf("Get error: %s = %v %v", k, v, ok)
+			}
+		}
+
 		mflru.Put(k, []byte(k))
 		keyset[k] = struct{}{}
-		v, ok := mflru.Get(k)
+		v, ok = mflru.Get(k)
 		if !ok || !equalsBytes(v, []byte(k)) {
 			t.Fatalf("get wrong:%s = %v %v", k, v, ok)
 		}

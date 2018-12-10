@@ -70,10 +70,10 @@ func (c *MFLRU) Get(key string) (val []byte, ok bool) {
 
 	node := c.cache[key]
 	if node != nil {
-		return node.val, true
-	} else {
-		return nil, false
+		val, ok = node.val, true
+		c.moveToMostRecent(node)
 	}
+	return
 }
 
 func (c *MFLRU) MemorySize() int64 {
