@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"testing"
 	"time"
-
-	"github.com/xiaonanln/go-simplelogger"
 )
 
 func TestNewMFLRU(t *testing.T) {
@@ -58,6 +56,54 @@ func TestMFLRUWithoutEvictTimeout(t *testing.T) {
 	}
 	if _, ok := mflru.Get("b"); !ok {
 		t.Fatalf("should not evict")
+	}
+}
+
+func TestMFLRU_SetEvictTimeout(t *testing.T) {
+	mflru := NewMFLRU(512, time.Second, func(key string, val []byte) {
+	})
+
+	mflru.Put("a", []byte("a"))
+	mflru.Put("b", []byte("b"))
+	time.Sleep(time.Millisecond * 50)
+	if _, ok := mflru.Get("a"); !ok {
+		t.Fatalf("should not evict")
+	}
+	if _, ok := mflru.Get("b"); !ok {
+		t.Fatalf("should not evict")
+	}
+	mflru.SetEvictTimeout(time.Millisecond * 50)
+
+	time.Sleep(time.Millisecond * 51)
+	if _, ok := mflru.Get("a"); ok {
+		t.Fatalf("should evict")
+	}
+	if _, ok := mflru.Get("b"); ok {
+		t.Fatalf("should evict")
+	}
+}
+
+func TestMFLRU_SetMemoryLimit(t *testing.T) {
+	mflru := NewMFLRU(10*1024*1024, time.Second, func(key string, val []byte) {
+	})
+
+	mflru.Put("a", []byte("a"))
+	mflru.Put("b", []byte("b"))
+	mflru.Put("c", []byte("c"))
+	mflru.SetMemoryLimit(mflru.memorySize)
+
+	mflru.Put("d", []byte("d"))
+	if _, ok := mflru.Get("a"); ok {
+		t.Fatalf("should evict")
+	}
+
+	if _, ok := mflru.Get("b"); !ok {
+		t.Fatalf("should not evict")
+	}
+
+	mflru.Put("f", []byte("f"))
+	if _, ok := mflru.Get("c"); ok {
+		t.Fatalf("should evict")
 	}
 }
 
@@ -131,11 +177,13 @@ func equalsBytes(b1, b2 []byte) bool {
 }
 
 func TestMFLRU_MemorySize(t *testing.T) {
+	t.SkipNow()
+
 	go func() {
 		pprofAddr := "localhost:9958"
 		log.Printf("starting pprof server on %s ...", pprofAddr)
 		if err := http.ListenAndServe(pprofAddr, nil); err != nil {
-			simplelogger.Error(err)
+			t.Error(err)
 		}
 	}()
 

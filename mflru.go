@@ -61,7 +61,7 @@ func (c *MFLRU) Put(key string, val []byte) {
 	}
 
 	if debug {
-		c.validateCorrectness()
+		c.verifyCorrectness()
 	}
 }
 
@@ -81,6 +81,26 @@ func (c *MFLRU) MemorySize() int64 {
 	return c.memorySize
 }
 
+func (c *MFLRU) SetMemoryLimit(limit int64) {
+	c.memoryLimit = limit
+
+	for c.memorySize > c.memoryLimit && !c.evictList.isEmpty() {
+		c.evictLeastRecent()
+	}
+
+	if debug {
+		c.verifyCorrectness()
+	}
+}
+
+func (c *MFLRU) SetEvictTimeout(evictTimeout time.Duration) {
+	c.evictTimeout = int64(evictTimeout / time.Nanosecond)
+	c.evictOutdatedEntries()
+	if debug {
+		c.verifyCorrectness()
+	}
+}
+
 func (c *MFLRU) estkvsize(key string, val []byte) int64 {
 	// add 8 uintptr for the memory footprints of cache map, etc ...
 	return int64(int(unsafe.Sizeof(slistnode{})+8*unsafe.Sizeof(uintptr(0))) + len(key) + len(val))
@@ -97,7 +117,7 @@ func (c *MFLRU) evictOutdatedEntries() {
 	}
 
 	if debug {
-		c.validateCorrectness()
+		c.verifyCorrectness()
 	}
 }
 
@@ -161,7 +181,7 @@ func (c *MFLRU) newNode(key string, val []byte) *slistnode {
 	return &slistnode{key, val, now, nil}
 }
 
-func (c *MFLRU) validateCorrectness() {
+func (c *MFLRU) verifyCorrectness() {
 	cacheSize := len(c.cache)
 	travelNodeCnt := 0
 	var sizeAccum int64

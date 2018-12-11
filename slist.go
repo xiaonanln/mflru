@@ -22,7 +22,7 @@ func (sl *slist) removeHead() *slistnode {
 	head := sl.head
 	sl.head = head.next
 	if sl.head == nil {
-		if sl.tail != head {
+		if debug && sl.tail != head {
 			panic(fmt.Errorf("wrong slist"))
 		}
 
