@@ -11,7 +11,7 @@ import (
 )
 
 func TestNewMFLRU(t *testing.T) {
-	mflru := NewMFLRU(1024, time.Second, func(key string, val []byte) {
+	mflru := NewMFLRU(1024, func(key string, val []byte) {
 		t.Logf("evicted: %s = %s", key, string(val))
 	})
 
@@ -22,69 +22,8 @@ func TestNewMFLRU(t *testing.T) {
 	}
 }
 
-func TestMFLRUEvictTimeout(t *testing.T) {
-	mflru := NewMFLRU(1024, time.Millisecond*100, func(key string, val []byte) {
-		t.Logf("evicted: %s = %s", key, string(val))
-	})
-	mflru.Put("a", []byte("a"))
-	mflru.Put("b", []byte("b"))
-	time.Sleep(time.Millisecond * 50)
-	if _, ok := mflru.Get("a"); !ok {
-		t.Fatalf("should not evict")
-	}
-	if _, ok := mflru.Get("b"); !ok {
-		t.Fatalf("should not evict")
-	}
-	time.Sleep(time.Millisecond * 101)
-	if _, ok := mflru.Get("a"); ok {
-		t.Fatalf("should evict")
-	}
-	if _, ok := mflru.Get("b"); ok {
-		t.Fatalf("should evict")
-	}
-}
-
-func TestMFLRUWithoutEvictTimeout(t *testing.T) {
-	mflru := NewMFLRU(1024, 0, func(key string, val []byte) {
-		t.Logf("evicted: %s = %s", key, string(val))
-	})
-	mflru.Put("a", []byte("a"))
-	mflru.Put("b", []byte("b"))
-	time.Sleep(time.Millisecond * 50)
-	if _, ok := mflru.Get("a"); !ok {
-		t.Fatalf("should not evict")
-	}
-	if _, ok := mflru.Get("b"); !ok {
-		t.Fatalf("should not evict")
-	}
-}
-
-func TestMFLRU_SetEvictTimeout(t *testing.T) {
-	mflru := NewMFLRU(512, time.Second, func(key string, val []byte) {
-	})
-
-	mflru.Put("a", []byte("a"))
-	mflru.Put("b", []byte("b"))
-	time.Sleep(time.Millisecond * 50)
-	if _, ok := mflru.Get("a"); !ok {
-		t.Fatalf("should not evict")
-	}
-	if _, ok := mflru.Get("b"); !ok {
-		t.Fatalf("should not evict")
-	}
-	mflru.SetEvictTimeout(time.Millisecond * 50)
-
-	time.Sleep(time.Millisecond * 51)
-	if _, ok := mflru.Get("a"); ok {
-		t.Fatalf("should evict")
-	}
-	if _, ok := mflru.Get("b"); ok {
-		t.Fatalf("should evict")
-	}
-}
-
 func TestMFLRU_SetMemoryLimit(t *testing.T) {
-	mflru := NewMFLRU(10*1024*1024, time.Second, func(key string, val []byte) {
+	mflru := NewMFLRU(10*1024*1024, func(key string, val []byte) {
 	})
 
 	mflru.Put("a", []byte("a"))
@@ -109,7 +48,7 @@ func TestMFLRU_SetMemoryLimit(t *testing.T) {
 
 func TestMFLRUEvictMemoryLimit(t *testing.T) {
 	expectEvict := 0
-	mflru := NewMFLRU(512, time.Second, func(key string, val []byte) {
+	mflru := NewMFLRU(512, func(key string, val []byte) {
 		vi, err := strconv.Atoi(key)
 		if err != nil {
 			t.Fatal(err)
@@ -132,7 +71,7 @@ func TestMFLRU_Fuzzy(t *testing.T) {
 		return ok
 	}
 
-	mflru := NewMFLRU(1024*1024, time.Millisecond*100, func(key string, val []byte) {
+	mflru := NewMFLRU(1024*1024, func(key string, val []byte) {
 		//t.Logf("evicted %s", key)
 		if !incahe(key) {
 			t.Fatalf("key not in keyset")
@@ -189,7 +128,7 @@ func TestMFLRU_MemorySize(t *testing.T) {
 
 	var mflru *MFLRU
 
-	mflru = NewMFLRU(100*1024*1024, 0, func(key string, val []byte) {
+	mflru = NewMFLRU(100*1024*1024, func(key string, val []byte) {
 		log.Printf("MFLRU cache is full: %d", mflru.MemorySize())
 		time.Sleep(time.Second * 60)
 	})

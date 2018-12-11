@@ -3,10 +3,9 @@ package mflru
 import "fmt"
 
 type slistnode struct {
-	key       string
-	val       []byte
-	visitTime int64
-	next      *slistnode
+	key  string
+	val  []byte
+	next *slistnode
 }
 
 type slist struct {

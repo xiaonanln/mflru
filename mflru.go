@@ -2,7 +2,6 @@ package mflru
 
 import (
 	"fmt"
-	"time"
 	"unsafe"
 
 	"github.com/xiaonanln/panicutil"
@@ -14,17 +13,15 @@ const (
 
 type MFLRU struct {
 	evictCallback func(key string, val []byte)
-	evictTimeout  int64
 	memorySize    int64
 	memoryLimit   int64
 	evictList     slist
 	cache         map[string]*slistnode
 }
 
-func NewMFLRU(memoryLimit int64, evictTimeout time.Duration, evictCallback func(key string, val []byte)) *MFLRU {
+func NewMFLRU(memoryLimit int64, evictCallback func(key string, val []byte)) *MFLRU {
 	c := &MFLRU{
 		memoryLimit:   memoryLimit,
-		evictTimeout:  int64(evictTimeout / time.Nanosecond),
 		evictCallback: evictCallback,
 		cache:         map[string]*slistnode{},
 	}
@@ -32,8 +29,6 @@ func NewMFLRU(memoryLimit int64, evictTimeout time.Duration, evictCallback func(
 }
 
 func (c *MFLRU) Put(key string, val []byte) {
-	c.evictOutdatedEntries()
-
 	curNode := c.cache[key]
 
 	var sizeDiff = c.estkvsize(key, val)
@@ -51,7 +46,6 @@ func (c *MFLRU) Put(key string, val []byte) {
 
 	if curNode != nil {
 		curNode.val = val
-		curNode.visitTime = time.Now().UnixNano()
 		c.moveToMostRecent(curNode)
 	} else {
 		curNode = c.newNode(key, val)
@@ -66,12 +60,9 @@ func (c *MFLRU) Put(key string, val []byte) {
 }
 
 func (c *MFLRU) Get(key string) (val []byte, ok bool) {
-	c.evictOutdatedEntries()
-
 	node := c.cache[key]
 	if node != nil {
 		val, ok = node.val, true
-		node.visitTime = time.Now().UnixNano()
 		c.moveToMostRecent(node)
 	}
 	return
@@ -93,32 +84,9 @@ func (c *MFLRU) SetMemoryLimit(limit int64) {
 	}
 }
 
-func (c *MFLRU) SetEvictTimeout(evictTimeout time.Duration) {
-	c.evictTimeout = int64(evictTimeout / time.Nanosecond)
-	c.evictOutdatedEntries()
-	if debug {
-		c.verifyCorrectness()
-	}
-}
-
 func (c *MFLRU) estkvsize(key string, val []byte) int64 {
 	// add 8 uintptr for the memory footprints of cache map, etc ...
 	return int64(int(unsafe.Sizeof(slistnode{})+8*unsafe.Sizeof(uintptr(0))) + len(key) + len(val))
-}
-
-func (c *MFLRU) evictOutdatedEntries() {
-	if c.evictTimeout <= 0 {
-		return
-	}
-
-	deadline := time.Now().UnixNano() - c.evictTimeout
-	for !c.evictList.isEmpty() && c.evictList.head.visitTime <= deadline {
-		c.evictLeastRecent()
-	}
-
-	if debug {
-		c.verifyCorrectness()
-	}
 }
 
 func (c *MFLRU) moveToMostRecent(node *slistnode) {
@@ -177,8 +145,7 @@ func (c *MFLRU) insertToMostRecent(node *slistnode) {
 }
 
 func (c *MFLRU) newNode(key string, val []byte) *slistnode {
-	now := time.Now().UnixNano()
-	return &slistnode{key, val, now, nil}
+	return &slistnode{key, val, nil}
 }
 
 func (c *MFLRU) verifyCorrectness() {
